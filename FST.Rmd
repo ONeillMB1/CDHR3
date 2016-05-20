@@ -1,0 +1,31 @@
+---
+title: "FST"
+author: "Mary O'Neill"
+date: "May 10, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/Mary/PepLab/data/CDHR3/")
+require(ggplot2)
+```
+
+## WEIR & COCKERHAM FST
+
+# CEU, YRI
+
+FST was calculates for each SNP between CEU and YRI populations in the 1K genomes phase 3 data on chromosome 7q22.3.
+
+```{r loadData}
+ceu_yri <- read.table("FST/CEU_YRI.weir.fst", header=TRUE, sep='\t', na.strings="-nan")
+```
+
+```{r Fst, echo=FALSE}
+fst <- ggplot(ceu_yri) + 
+  geom_point(aes(x=POS, y=WEIR_AND_COCKERHAM_FST)) +
+  theme_bw()
+fst
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
