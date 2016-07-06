@@ -68,7 +68,10 @@ def find_idx():
     print len(ancSNPs)
     indices = []
     for i in ancSNPs:
-        idx = refSNPs.index(i)
+        try:
+            idx = refSNPs.index(i)
+        except ValueError:
+            idx = "NA"
         indices.append(idx)
     return refSNPs, indices
 
@@ -80,7 +83,10 @@ def write_fasta(refSNPs, indices):
             if len(seq_record.seq) == len(indices):
                 newRec = ['?']*len(refSNPs)
                 for i, idx in enumerate(indices):
-                    newRec[idx] = seq_record.seq[i]
+                    if idx != "NA":
+                        newRec[idx] = seq_record.seq[i]
+                    else:
+                        continue
                 outfile.write('>' + seq_record.id + '\n')
                 outfile.write("".join(newRec) + '\n')
 
