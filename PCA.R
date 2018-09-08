@@ -44,4 +44,9 @@ ped = read.table("integrated_call_samples_v2.20130502.ALL.ped",sep="\t",header=T
 
 # Plot with colors corresponding to super populations
 N = length(levels(ped$Population))
+plot3d <- scatterplot3d(p$u, color=rainbow(N)[ped$Population], size=0.5)
+
+
+jpeg(file="testPCA.jpeg")
 scatterplot3d(p$u, color=rainbow(N)[ped$Population], size=0.5)
+dev.off()

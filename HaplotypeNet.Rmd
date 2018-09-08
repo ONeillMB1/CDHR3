@@ -1,0 +1,132 @@
+---
+title: "Haplotype"
+author: "Mary O'Neill"
+date: "June 15, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(adegenet)
+require(pegas)
+require(pryr)
+require(vcfR)
+```
+
+## Reading Files
+
+
+```{r read}
+
+(info <- VCFloci("C:/Users/Mary/PepLab/CDHR3/data/chr7_105657078-105659873_HWEfiltered.recode.vcf"))
+str(info) # show the modes of the columns
+SNP <- is.snp(info)
+table(SNP) # how many loci are SNPs?
+## compare with:
+table(getINFO(info, "VT"))
+op <- par(mfcol = c(4, 1), xpd = TRUE)
+## distribution of SNP and non-SNP mutations along the Y chr:
+plot(info$POS, !SNP, "h", col = "red", main = "non-SNP mutations",
+xlab = "Position", ylab = "", yaxt = "n")
+plot(info$POS, SNP, "h", col = "blue", main = "SNP mutations",
+xlab = "Position", ylab = "", yaxt = "n")
+par(xpd = FALSE)
+par(op)
+## read both types of mutations separately:
+X.SNP <- read.vcf("C:/Users/Mary/PepLab/CDHR3/data/chr7_105657078-105659873_HWEfiltered.recode.vcf", which.loci = which(SNP))
+#X.other <- read.vcf("chrY.vcf.gz", which.loci = which(!SNP))
+identical(rownames(X.SNP), VCFlabels("C:/Users/Mary/PepLab/CDHR3/data/chr7_105657078-105659873_HWEfiltered.recode.vcf")) # TRUE
+cat(VCFheader("C:/Users/Mary/PepLab/CDHR3/data/chr7_105657078-105659873_HWEfiltered.recode.vcf"))
+## get haplotypes 
+h <- haplotype(X.SNP, 1:81)
+## plot their frequencies:
+op <- par(mar = c(3, 10, 1, 1))
+plot(h, horiz=TRUE, las = 1)
+par(op)
+
+
+d <- dist.haplotype.loci(h)
+haps <- h[,1:89]
+
+
+```
+
+```{r vcfR}
+vcf <- read.vcfR("C:/Users/Mary/PepLab/CDHR3/chr7_105657078-105684124.recode.vcf")
+my_dnabin <- vcfR2DNAbin(vcf, consensus = TRUE, extract.haps = FALSE, gt.split = "|")
+h2 <- haplotype(my_dnabin)
+
+pop.dat <- read.table("C:/Users/Mary/PepLab/data/CDHR3/integrated_call_samples_v3.20130502.ALL.txt", header = FALSE)
+names(pop.dat) <- c("sample","pop","superpop","sex")
+
+ind.hap <- with(stack(setNames(attr(h2, "index"), rownames(h2))),
+                table(hap=ind, pop=pop.dat[match(rownames(my_dnabin)[values],as.character(pop.dat$sample)),'superpop']))
+
+#pop.dat[match(rownames(my_dnabin),as.character(pop.dat$sample)),'pop']
+
+
+(net <- haploNet(h2))
+plot(net)
+plot(net, size=log(attr(net, "freq")), scale.ratio = 2, cex = 0.8, pie=ind.hap)
+legend(50,50, colnames(ind.hap), col=rainbow(ncol(ind.hap)), pch=20)
+
+
+
+class(h2) <- "DNAbin"
+write.dna(h2, file = "C:/Users/Mary/PepLab/data/CDHR3/Mathieson_ancient/chr7_105657078-105684124_haplotypes.fasta", format="fasta")
+```
+
+
+```{r tree}
+
+require(ggplot2)
+require(ggtree)
+
+lrg <- read.tree("C:/Users/Mary/PepLab/data/CDHR3/RAxML_bipartitionsBranchLabels.mod_nea_den_smallHap_combine")
+lrg.r <- root(lrg, outgroup="AltaiNea_h2-A")
+#tre_data <- fortify(tre)
+#head(tre_data)
+lrg2 <- drop.tip(lrg.r, c("DNK02_h1-A", "DNK02_h2-A"))
+
+mod <- drop.tip(lrg.r, c("DNK02_h1-A", "DNK02_h2-A", "DenisovaPinky_h2-A", "DenisovaPinky_h1-A", "AltaiNea_h2-A", "AltaiNea_h1-A"))
+
+require(reshape2)
+dat <- data.frame(ind.hap)
+dat.m <- dcast(dat, hap ~ pop)
+
+mod_dat <- fortify(mod)
+lrg2_dat <- fortify(lrg2)
+
+require(stringr)
+
+mod_dat$newlab <- sapply(strsplit(mod_dat$label, "\\-"), "[[", 1)
+lrg2_dat$newlab <- sapply(strsplit(lrg2_dat$label, "\\-"), "[[", 1)
+
+
+pie_dat <- dat.m
+pie2_dat <- dat.m
+pie_dat$hap <- mod_dat[match(as.character(pie_dat$hap), mod_dat$newlab), 'node']
+pie2_dat$hap <- lrg2_dat[match(as.character(pie2_dat$hap), lrg2_dat$newlab), 'node']
+pie_dat <- na.omit(pie_dat)
+pie2_dat <- na.omit(pie2_dat)
+names(pie_dat) <- c("node", "AFR", "AMR", "EAS", "EUR", "SAS")
+names(pie2_dat) <- c("node", "AFR", "AMR", "EAS", "EUR", "SAS")
+pie_dat$total <- rowSums(pie_dat[,2:6])
+pie2_dat$total <- rowSums(pie2_dat[,2:6])
+
+pies <- nodepie(pie_dat, cols=2:(length(pie_dat)-1), alpha=.6)
+pies2 <- nodepie(pie2_dat, cols=2:(length(pie_dat)-1), alpha=.6)
+mod_dat$total <- pie_dat[match(mod_dat$node, pie_dat$node), 'total']
+lrg2_dat$total <- pie2_dat[match(lrg2_dat$node, pie2_dat$node), 'total']
+  
+  
+t <- ggtree(mod_dat, ladderize=FALSE) + geom_text2(aes(subset=isTip, label=total), hjust = -2.5)
+
+t2 <- ggtree(lrg2_dat, ladderize=FALSE) + geom_tiplab() + geom_tippoint() + geom_text2(aes(subset=isTip, label=total), hjust = -2.5)
+
+                                                                     
+p <- inset(t, pies, height=.035, width=.035, hjust=-0.005)
+p2 <- inset(t2, pies2, height=.03, width=.03, hjust=-0.005)
+p2
+
+ggsave("C:/Users/Mary/PepLab/data/CDHR3/161004_mod_nea_den_haptree.pdf", p2, width=12, height = 9, dpi=300) 
